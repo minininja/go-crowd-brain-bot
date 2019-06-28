@@ -1,0 +1,73 @@
+@startuml
+Participant DB as db
+Actor GeneralUser as gu
+Actor Moderator as mod
+Participant Bot as bot
+
+alt submission flow
+gu -> bot : ~content <type>|<keyword>|<content>
+bot -> bot : validate content (rules?)
+alt optional create category flow
+bot -> db : insert into category (name) values (?)
+end
+bot -> db : insert into content (catagory_id, keyword, content, state) values (categoryId, keyword, content, "pending")
+bot -> gu : reply with notice that content as pending
+end
+
+alt removal flow
+mod -> bot : ~remove <category>|<keyword>
+bot -> db : select * from category where category = ?
+alt no category flow
+bot -> mod : reply with category doesn't exist
+end
+bot -> db : select * from content where category = ? and keywork = ?
+alt doesn't exist flow
+bot -> mod : reply with record not found
+end
+alt doesn't exist flow
+bot -> db : update content set status = "deleted" where category = ? and keyword = ?
+bot -> mod : reply with content removed
+end
+end
+
+alt moderation queue flow
+mod -> bot : ~pending
+bot -> db : select * from content where status = 'pending'
+bot -> mod : reply with list of category/keywords that are pending
+end
+
+alt moderation flow
+mod -> bot : ~pending <category>|<keyword>
+bot -> db : select * from content where category = ? and keyword = ? and status = 'pending'
+bot -> mod : reply with the record id, keyword and content
+alt accept flow
+mod -> bot : ~accept <record id>
+bot -> db : select * from content where category = ? and keyword = ?
+alt new version optional flow
+bot -> db : update content set status = 'replaced' where category = ? and keyword = ?
+end
+bot -> db : update content set status = "accepted" where record_id = ?
+bot -> gu : DM to gu "content accepted"
+bot -> mod : reply with "content accepted"
+end
+alt reject flow
+mod -> bot : ~reject <record id>|<why>
+bot -> db : update content set status = 'rejected' where record_id = ?
+bot -> gu : DM to gu "content rejected & why"
+bot -> mod : reply with "content rejected"
+end
+end
+
+alt what can I search for flow
+gu -> bot : ~categories
+bot -> db : select * from categories
+bot -> gu : reply with list of categories
+end
+
+alt keyword flow
+gu -> bot : ~<category> <keyword
+bot -> db : select * from content
+bot -> gu : reply with the content
+end
+
+@enduml
