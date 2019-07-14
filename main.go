@@ -11,27 +11,36 @@ import (
 
 var Session, _ = discordgo.New()
 var commandPrefix string
-var debug = false
+var debug = true
 
 func init() {
+	var token string
+	flag.StringVar(&token, "t", "", "Discord Auth Token")
+	flag.StringVar(&commandPrefix, "cp", "!", "Discord command prefix")
+	flag.BoolVar(&debug, "debug", false, "Enable debug message logger mode")
+
 	flag.Parse()
 
-	Session.Token = os.Getenv("DG_TOKEN")
-	if Session.Token == "" {
-		flag.StringVar(&Session.Token, "t", "", "Discord Auth Token")
+	// fall back to environment variables
+	if token == "" {
+		log.Printf("Looking in environment for token")
+		token = os.Getenv("DG_TOKEN")
 	}
+	if commandPrefix == "" {
+		log.Printf("Looking in environment for command prefix")
+		commandPrefix = os.Getenv("DG_COMMAND_PREFIX")
+	}
+
+	log.Printf("Using %s as command prefix", commandPrefix)
+	if debug {
+		log.Printf("Message logging enabled")
+	}
+
+	Session.Token = token
 	if Session.Token == "" {
 		log.Fatal("A discord token must be provided")
 		return
 	}
-
-	commandPrefix = os.Getenv("DG_COMMAND_PREFIX")
-	if commandPrefix == "" {
-		flag.StringVar(&commandPrefix, "cp", "!", "Discord command prefix")
-	}
-	log.Printf("Using %s as command prefix", commandPrefix)
-
-	flag.BoolVar(&debug, "debug", false, "Enable debug message logger mode")
 }
 
 func errCheck(msg string, err error) {
@@ -116,3 +125,13 @@ func matcher(param string) bool {
 	return -1 != FindCategory(param)
 }
 
+func messageLogger(session *discordgo.Session, message *discordgo.MessageCreate) {
+	if debug {
+		// no need to log our own messages
+		if session.State.User.ID == message.Author.ID {
+			return
+		}
+
+		log.Printf("%s %s %s %s\n", message.GuildID, message.ChannelID, message.Author.Username, message.Content)
+	}
+}
