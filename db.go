@@ -2,10 +2,10 @@ package main
 
 import (
 	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
 	"flag"
-	"os"
+	_ "github.com/mattn/go-sqlite3"
 	"log"
+	"os"
 )
 
 var con *sql.DB
@@ -46,10 +46,11 @@ func FindCategory(category string) int {
 	return -1
 }
 
-func UpsertCategory(category string) int {
-	stmt, err := con.Prepare("insert into category (category) values(?) on conflict do nothing")
+func InsertCategory(category string) int {
+	log.Printf("Adding category %s", category)
+	stmt, err := con.Prepare("insert or ignore into category (category) values(?)")
 	defer stmt.Close()
-	if !dbError("couldn't prepare call for upsert", err) {
+	if !dbError("couldn't prepare call for insert", err) {
 		_, err := stmt.Exec(category)
 		if !dbError("insert failed", err) {
 			return FindCategory(category)
@@ -59,7 +60,8 @@ func UpsertCategory(category string) int {
 }
 
 func InsertContent(categoryId int, keyword string, detail string) bool {
-	stmt, err := con.Prepare("insert into content (category_id, `key`, detail) values(?,?)")
+	log.Printf("Adding content %s %s", keyword, detail)
+	stmt, err := con.Prepare("insert into content (category_id, keyword, detail, status) values(?, ?,?, 'ACTIVE')")
 	defer stmt.Close()
 	if !dbError("couldn't prepare call for upsert", err) {
 		_, err := stmt.Exec(categoryId, keyword, detail)
@@ -140,10 +142,10 @@ func doMigrations(con *sql.DB) {
 	row.Scan(&ver)
 
 	for _, migration := range migrations {
-		if (migration.ver > ver) {
+		if migration.ver > ver {
 			log.Printf("SQL: %s", migration)
 			_, error := con.Exec(migration.sql)
-			if (!dbError("Couldn't run migration", error)) {
+			if !dbError("Couldn't run migration", error) {
 				con.Exec("update migrations set ver = ?", migration.ver)
 				ver = migration.ver
 			}

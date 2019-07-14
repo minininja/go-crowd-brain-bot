@@ -11,7 +11,7 @@ import (
 
 var Session, _ = discordgo.New()
 var commandPrefix string
-var debug = true
+var debug = false
 
 func init() {
 	var token string
@@ -59,11 +59,18 @@ func main() {
 	router := exrouter.New()
 
 	router.On("submit", func(ctx *exrouter.Context) {
-		content := strings.Split(ctx.Msg.Content, "!")
-		log.Printf("Upserting %s", content[0])
-		id := UpsertCategory(content[0])
+		raw := ctx.Msg.Content
+		log.Printf("%s %d", raw, len(raw))
+
+		raw = raw[1:]
+		log.Printf(raw)
+
+		content := strings.Split(raw, " ")
+
+		log.Printf("Upserting %s", content[1])
+		id := InsertCategory(content[1])
 		if -1 != id {
-			if InsertContent(id, content[1], content[2]) {
+			if InsertContent(id, content[2], strings.Join(content[3:], " ")) {
 				ctx.Reply("Accepted as pending.")
 			} else {
 				ctx.Reply("Some sort of error happened, we recommend screaming and hollering.")
@@ -91,14 +98,17 @@ func main() {
 		ctx.Reply("Recognized commands: content, remove, pending, accept, reject, categories and any defined category")
 	})
 	router.OnMatch("test", matcher, func(ctx *exrouter.Context) {
+		raw := ctx.Msg.Content[1:]
+		log.Printf("raw: '%s'", raw)
+
 		request := ctx.Msg.Content
 		parts := strings.Split(strings.Split(request, "!")[1], " ")
 		if len(parts) >= 1 {
 			categoryId := FindCategory(parts[0])
 			if len(parts) >= 2 {
-				log.Printf("Searching for %s %d %s", parts[0], categoryId, parts[1])
+				log.Printf("Searching for '%s' '%d' '%s'", parts[0], categoryId, parts[1])
 				result := FindContent(categoryId, parts[1])
-				log.Printf("length is %d", len(result))
+				log.Printf("length is '%d'", len(result))
 				if len(result) != 0 {
 					for _, txt := range result {
 						ctx.Reply(txt)
